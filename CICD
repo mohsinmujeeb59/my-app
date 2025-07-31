@@ -1,0 +1,51 @@
+pipeline {
+    agent {
+        docker {
+            image 'python:3.9'
+        }
+    }
+    environment {
+        IMAGE_NAME = 'my-python-app'
+        REGISTRY = 'your-dockerhub-username'
+    }
+    stages {
+        stage('Clone') {
+            steps {
+                git 'https://github.com/your-username/your-repo.git'
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh 'pip install -r requirements.txt'
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                sh 'python -m unittest || true'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t $REGISTRY/$IMAGE_NAME:latest .'
+            }
+        }
+
+        stage('Push to DockerHub') {
+            steps {
+                withCredentials([string(credentialsId: 'dockerhub-pass', variable: 'DOCKER_PASS')]) {
+                    sh 'echo $DOCKER_PASS | docker login -u your-dockerhub-username --password-stdin'
+                    sh 'docker push $REGISTRY/$IMAGE_NAME:latest'
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh 'docker run -d -p 5000:5000 --name app $REGISTRY/$IMAGE_NAME:latest'
+            }
+        }
+    }
+}
